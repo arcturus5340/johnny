@@ -34,5 +34,22 @@ class Members(models.Model):
         verbose_name_plural = 'Пользователи'
 
 
+class ScheduledMessages(models.Model):
+    chat = models.IntegerField(
+        verbose_name='Группа'
+    )
+    text = models.TextField(
+        verbose_name='Текст'
+    )
+    interval = models.DurationField(
+        verbose_name='Интервал'
+    )
+
+    class Meta:
+        db_table = 'group_scheduled_messages'
+        verbose_name = 'Запланированное сообщение'
+        verbose_name_plural = 'Запланированные сообщения'
+
+
 class Swearing(models.Model):
     word = models.CharField(max_length=32)
