@@ -33,3 +33,6 @@ class Members(models.Model):
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
+
+class Swearing(models.Model):
+    word = models.CharField(max_length=32)
