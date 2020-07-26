@@ -46,6 +46,11 @@ def webhook(request):
                         user=new_chat_member['id'],
                         chat=t_data['message']['chat']['id'],
                     )
+                data = {
+                    'chat_id': t_data['message']['chat']['id'],
+                    'message_id': t_data['message']['message_id'],
+                }
+                requests.post(f'https://api.telegram.org/bot{settings.TELEGRAM_TOKEN}/deleteMessage', data=data)
 
         left_chat_member = t_data.get('message', {}).get('left_chat_member')
         if left_chat_member:
