@@ -2,6 +2,16 @@ from django.db import models
 from django.utils import timezone
 
 
+class Blacklist(models.Model):
+    link = models.TextField(
+        verbose_name='Ссылка'
+    )
+
+    class Meta:
+        verbose_name = 'Черный список ссылок'
+        verbose_name_plural = 'Черный список ссылок'
+
+
 class Members(models.Model):
     user = models.IntegerField(
         verbose_name='ID Пользователя'
