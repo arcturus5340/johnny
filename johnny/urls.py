@@ -15,7 +15,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.views.decorators.csrf import csrf_exempt
+
+from group.views import webhook
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('webhooks/group', csrf_exempt(webhook)),
 ]
