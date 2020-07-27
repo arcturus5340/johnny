@@ -1,0 +1,4 @@
+#!/home/arcturus/Projects/johnny/venv/bin/python
+import sys
+from pymorphy2 import cli
+sys.exit(cli.main())
