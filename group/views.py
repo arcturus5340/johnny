@@ -22,7 +22,14 @@ def custom_search(iterable, obj):
     return False
 
 
-
+def is_member(func):
+    @functools.wraps(func)
+    def wrapper(chat_obj, user_obj):
+        admins = API.getChatAdministrators(chat_obj['id']).get('result', [])
+        is_admin = user_obj['id'] in (admin_data['user']['id'] for admin_data in admins)
+        if not is_admin:
+            func(chat_obj, user_obj)
+    return wrapper
 
 
 def webhook(request):
@@ -32,4 +39,3 @@ def webhook(request):
         return JsonResponse({
             'ok': True,
         })
-
