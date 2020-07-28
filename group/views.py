@@ -97,6 +97,30 @@ def webhook(request):
     if request.method == 'POST':
         t_data = json.loads(request.body)
         pprint(t_data)
+        # return JsonResponse({
+        #     'ok': True,
+        # })
+
+        message_obj = t_data.get('message', {}) or t_data.get('edited_message', {})
+        reply_obj = message_obj.get('reply_to_message')
+
+        old_group_id = message_obj.get('migrate_from_chat_id', None)
+        if old_group_id:
+            old_group = Groups.objects.get(id=old_group_id)
+            new_group = Groups.objects.create(
+                id=message_obj['chat']['id'],
+                title=message_obj['chat']['title']
+            )
+            Info.objects.filter(
+                chat=old_group,
+            ).update(chat=new_group)
+            old_group.delete()
+
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
+
         return JsonResponse({
-            'ok': True,
+            'ok': 'POST request processed'
         })
