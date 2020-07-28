@@ -54,22 +54,26 @@ class Members(models.Model):
         blank=True,
         null=True,
     )
-    chat_id = models.IntegerField(
-        verbose_name='ID Пользователя',
-    )
+
+    class Meta:
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
+
+
+class Info(models.Model):
+    user = models.ForeignKey(Members, on_delete=models.PROTECT)
+    chat = models.ForeignKey(Groups, on_delete=models.PROTECT)
+    rating = models.IntegerField(default=0)
     date_joined = models.DateTimeField(default=timezone.now)
-    rating = models.IntegerField(
-        default=0,
-        verbose_name='Репутация'
-    )
     mute_rating = models.IntegerField(
         default=0,
         verbose_name='Кол-во нарушений',
     )
 
     class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
+        unique_together = ('user', 'chat')
+        verbose_name = 'Рейтинг'
+        verbose_name_plural = 'Рейтинг'
 
 
 class ScheduledMessages(models.Model):
