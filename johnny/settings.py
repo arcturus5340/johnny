@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'group.apps.GroupConfig',
+    'background_task',
 ]
 
 MIDDLEWARE = [
