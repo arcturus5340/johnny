@@ -21,5 +21,5 @@ from group.views import webhook
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('webhooks/group', csrf_exempt(webhook)),
+    path('', csrf_exempt(webhook)),
 ]
