@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 
+from background_task.models import Task, CompletedTask
+
 
 class Blacklist(models.Model):
     link = models.TextField(
@@ -11,31 +13,38 @@ class Blacklist(models.Model):
         return 'Нежелательная ссылка ({})'.format(self.link)
 
     class Meta:
-        verbose_name = 'Черный список ссылок'
-        verbose_name_plural = 'Черный список ссылок'
+        verbose_name = 'Нежелательная ссылка'
+        verbose_name_plural = 'Нежелательные ссылки'
 
 
 class Gratitudes(models.Model):
-    word = models.CharField(max_length=32)
+    word = models.CharField(
+        max_length=32,
+        verbose_name='Слово благодарности',
+    )
 
     def __str__(self):
         return 'Слово благодарности'
 
     class Meta:
-        verbose_name = 'Список слов благодарности'
-        verbose_name_plural = 'Список слов благодарности'
+        verbose_name = 'Слово благодарности'
+        verbose_name_plural = 'Слова благодарности'
 
 
 class Groups(models.Model):
     id = models.IntegerField(
-        verbose_name='ID Группы',
         primary_key=True,
         unique=True,
     )
     title = models.CharField(
         max_length=32,
-        verbose_name='Название Группы',
     )
+    messages_in_last_interval = models.IntegerField(
+        default=0,
+    )
+
+    def __str__(self):
+        return self.title
 
     class Meta:
         verbose_name = 'Группа'
@@ -44,41 +53,57 @@ class Groups(models.Model):
 
 class Members(models.Model):
     id = models.IntegerField(
-        verbose_name='ID Пользователя',
         primary_key=True,
         unique=True,
     )
     username = models.CharField(
         max_length=32,
-        verbose_name='Ник Пользователя',
         blank=True,
         null=True,
     )
 
-    class Meta:
-        verbose_name = 'Пользователь'
-        verbose_name_plural = 'Пользователи'
+    def __str__(self):
+        return self.username
 
 
 class Info(models.Model):
-    user = models.ForeignKey(Members, on_delete=models.PROTECT)
-    chat = models.ForeignKey(Groups, on_delete=models.PROTECT)
-    rating = models.IntegerField(default=0)
-    date_joined = models.DateTimeField(default=timezone.now)
+    user = models.ForeignKey(
+        Members,
+        on_delete=models.PROTECT,
+        verbose_name='Пользователь',
+    )
+    chat = models.ForeignKey(
+        Groups,
+        on_delete=models.PROTECT,
+        verbose_name='Название чата',
+    )
+    rating = models.IntegerField(
+        default=0,
+        verbose_name='Рейтинг'
+    )
+    date_joined = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Дата вступления в группу'
+    )
     mute_rating = models.IntegerField(
         default=0,
         verbose_name='Кол-во нарушений',
     )
 
+    def __str__(self):
+        return "Объект базы пользователей"
+
     class Meta:
         unique_together = ('user', 'chat')
-        verbose_name = 'Рейтинг'
-        verbose_name_plural = 'Рейтинг'
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
 
 
 class ScheduledMessages(models.Model):
     id = models.AutoField(primary_key=True)
-    chat = models.IntegerField(
+    chat = models.ForeignKey(
+        Groups,
+        on_delete=models.PROTECT,
         verbose_name='Группа',
     )
     text = models.TextField(
@@ -86,6 +111,11 @@ class ScheduledMessages(models.Model):
     )
     interval = models.DurationField(
         verbose_name='Интервал',
+    )
+    task_id = models.CharField(
+        verbose_name='Уникальный номер задачи',
+        max_length=32,
+        blank=True,
     )
 
     def __str__(self):
@@ -104,5 +134,16 @@ class Swearing(models.Model):
         return 'Нецензурное слово'
 
     class Meta:
-        verbose_name = 'Список нецензурных слов'
-        verbose_name_plural = 'Список нецензурных слов'
+        verbose_name = 'Нецензурное выражение'
+        verbose_name_plural = 'Нецензурные выражения'
+
+
+class Whitelist(models.Model):
+    word = models.CharField(max_length=32)
+
+    def __str__(self):
+        return 'Допустимое слово'
+
+    class Meta:
+        verbose_name = 'Допустимое слово'
+        verbose_name_plural = 'Допустимые слова'
