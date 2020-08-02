@@ -173,6 +173,18 @@ def webhook(request):
                 'ok': 'POST request processed'
             })
 
+        if message_obj:
+            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])
+            group.messages_in_last_interval += 1
+            group.save()
+
+        if message_obj.get('text') == '!ro' and reply_obj:
+            admins = API.getChatAdministrators(message_obj['chat']['id']).get('result', [])
+            is_muted_by_admin = message_obj['from']['id'] in [admin_data['user']['id'] for admin_data in admins]
+            if is_muted_by_admin:
+                mute_user(message_obj['chat'], reply_obj['from'])
+            API.deleteMessage(reply_obj['chat']['id'], reply_obj['message_id'])
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
