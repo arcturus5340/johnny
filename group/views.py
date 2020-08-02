@@ -3,7 +3,7 @@ import json
 from django.http import JsonResponse
 from pprint import pprint
 
-from group.models import Blacklist, Gratitudes, Groups, Info, Members, Swearing
+from group.models import Blacklist, Gratitudes, Groups, Info, Members, Swearing, Whitelist
 
 from time import mktime
 
@@ -16,10 +16,11 @@ import functools
 
 
 def custom_search(iterable, obj):
+    result = list()
     for element in iterable:
         if element in obj:
-            return True
-    return False
+            result.append(obj)
+    return result
 
 
 def is_member(func):
@@ -40,7 +41,7 @@ def mute_user(chat_obj, user_obj):
     )
     info, _ = Info.objects.get_or_create(
         user=user,
-        chat=Groups.objects.get(id=chat_obj['id']),
+        chat=Groups.objects.get_or_create(id=chat_obj['id'], title=chat_obj['title'])[0],
         defaults={
             'date_joined': timezone.now() - timezone.timedelta(days=2),
         }
@@ -68,9 +69,10 @@ def mute_user(chat_obj, user_obj):
         )
         Info.objects.filter(
             user=user,
-            chat=Groups.objects.get(
+            chat=Groups.objects.get_or_create(
                 id=chat_obj['id'],
-            ),
+                title=chat_obj['title'],
+            )[0],
         ).delete()
         return JsonResponse({
             'ok': True,
@@ -104,9 +106,14 @@ def webhook(request):
         message_obj = t_data.get('message', {}) or t_data.get('edited_message', {})
         reply_obj = message_obj.get('reply_to_message')
 
+        if message_obj['chat'].get('type') == 'private':
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
         old_group_id = message_obj.get('migrate_from_chat_id', None)
         if old_group_id:
-            old_group = Groups.objects.get(id=old_group_id)
+            old_group, _ = Groups.objects.get_or_create(id=old_group_id, title=message_obj['chat']['title'])
             new_group = Groups.objects.create(
                 id=message_obj['chat']['id'],
                 title=message_obj['chat']['title']
