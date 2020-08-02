@@ -185,6 +185,31 @@ def webhook(request):
                 mute_user(message_obj['chat'], reply_obj['from'])
             API.deleteMessage(reply_obj['chat']['id'], reply_obj['message_id'])
 
+        text_words = set(re.split('[\n .,?!:()]', message_obj.get('text', '').lower()))
+
+        gratitude_words = set(Gratitudes.objects.values_list('word', flat=True))
+        has_message_gratitude = False
+        if reply_obj and (text_words & gratitude_words) and (reply_obj['from']['id'] != API.BOT_ID) and not reply_obj['from']['is_bot']:
+            if reply_obj['from']['id'] == message_obj['from']['id']:
+                return JsonResponse({
+                    'ok': 'POST request processed'
+                })
+
+            user, created = Members.objects.get_or_create(
+                id=reply_obj['from']['id'],
+                username=reply_obj['from']['first_name'],
+            )
+            info, _ = Info.objects.get_or_create(
+                user=user,
+                chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])[0],
+                defaults={'date_joined': timezone.now() - timezone.timedelta(days=2)},
+            )
+            info.rating += 1
+            info.save()
+            text = 'Репутация **{}** увеличена на 1.\nВсего очков репутации: **{}**'.format(reply_obj['from']['first_name'], info.rating)
+            API.sendMessage(message_obj['chat']['id'], text)
+            has_message_gratitude = True
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
