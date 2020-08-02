@@ -152,6 +152,27 @@ def webhook(request):
                     'ok': 'POST request processed'
                 })
 
+        left_chat_member = message_obj.get('left_chat_member')
+        if left_chat_member:
+            if left_chat_member['id'] != API.BOT_ID:
+                user, _ = Members.objects.get_or_create(
+                    id=left_chat_member['id'],
+                    username=left_chat_member['first_name'],
+                )
+                Info.objects.filter(
+                    user=user,
+                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['id'])[0],
+                ).delete()
+                API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
+            else:
+                Info.objects.filter(
+                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])[0],
+                ).delete()
+                Groups.objects.filter(id=message_obj['chat']['id']).delete()
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
