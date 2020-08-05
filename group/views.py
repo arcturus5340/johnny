@@ -3,7 +3,7 @@ import json
 from django.http import JsonResponse
 from pprint import pprint
 
-from group.models import Blacklist, Gratitudes, Groups, Info, Members, Swearing, Whitelist
+from group.models import Blacklist, Gratitudes, GlobalSettings, Groups, Info, Members, Swearing, Whitelist
 
 from time import mktime
 
@@ -35,13 +35,16 @@ def is_member(func):
 
 @is_member
 def mute_user(chat_obj, user_obj):
-    user, _ = Members.objects.get_or_create(
+    user, created = Members.objects.get_or_create(
         id=user_obj['id'],
-        username=user_obj['first_name'],
+        defaults={
+            'username': user_obj['first_name'],
+        }
     )
+    group, _ = Groups.objects.get_or_create(id=chat_obj['id'], defaults={'title': chat_obj['title']})
     info, _ = Info.objects.get_or_create(
         user=user,
-        chat=Groups.objects.get_or_create(id=chat_obj['id'], title=chat_obj['title'])[0],
+        chat=group,
         defaults={
             'date_joined': timezone.now() - timezone.timedelta(days=2),
         }
@@ -50,19 +53,19 @@ def mute_user(chat_obj, user_obj):
     info.save()
     if info.mute_rating == 1:
         until_date = int(mktime((timezone.now() + timezone.timedelta(hours=6)).timetuple()))
-        text = '{} перемещен в карантин на 6 часов за первое нарушение.'.format(user_obj['first_name'])
-        API.sendMessage(chat_obj['id'], text)
+        text = '{} перемещен в карантин на <b>6 часов</b> за <b>первое нарушение</b>.'.format(user_obj['first_name'])
+        API.sendMessage(chat_obj['id'], text, 'html')
     elif info.mute_rating == 2:
         until_date = int(mktime((timezone.now() + timezone.timedelta(hours=12)).timetuple()))
-        text = '{} перемещен в карантин на 12 часов за второе нарушение.'.format(user_obj['first_name'])
-        API.sendMessage(chat_obj['id'], text)
+        text = '{} перемещен в карантин на <b>12 часов</b> за <b>второе нарушение</b>.'.format(user_obj['first_name'])
+        API.sendMessage(chat_obj['id'], text, 'html')
     elif info.mute_rating == 3:
         until_date = int(mktime((timezone.now() + timezone.timedelta(hours=24)).timetuple()))
-        text = '{} перемещен в карантин на 24 часа за третье нарушение.'.format(user_obj['first_name'])
-        API.sendMessage(chat_obj['id'], text)
+        text = '{} перемещен в карантин на <b>24 часа</b> за <b>третье нарушение</b>.'.format(user_obj['first_name'])
+        print(API.sendMessage(chat_obj['id'], text, 'html'))
     else:
-        text = '{} удален из чата за четвертое нарушение.'.format(user_obj['first_name'])
-        API.sendMessage(chat_obj['id'], text)
+        text = '{} удален из чата за <b>четвертое нарушение</b>.'.format(user_obj['first_name'])
+        API.sendMessage(chat_obj['id'], text, 'html')
         API.kickChatMember(
             chat_obj['id'],
             user_obj['id']
@@ -71,7 +74,9 @@ def mute_user(chat_obj, user_obj):
             user=user,
             chat=Groups.objects.get_or_create(
                 id=chat_obj['id'],
-                title=chat_obj['title'],
+                defaults={
+                    'title': chat_obj['title'],
+                }
             )[0],
         ).delete()
         return JsonResponse({
@@ -99,21 +104,34 @@ def webhook(request):
     if request.method == 'POST':
         t_data = json.loads(request.body)
         pprint(t_data)
-        # return JsonResponse({
-        #     'ok': True,
-        # })
 
         message_obj = t_data.get('message', {}) or t_data.get('edited_message', {})
         reply_obj = message_obj.get('reply_to_message')
 
         if message_obj['chat'].get('type') == 'private':
+            activation_key_match = re.search(r'^/activate\s(\S+).*$', message_obj.get('text', ''))
+            if activation_key_match:
+                activation_key = activation_key_match.group(1)
+                if activation_key == GlobalSettings.objects.get(setting='ActivationKey').value:
+                    Members.objects.update_or_create(
+                        id=message_obj['from']['id'],
+                        defaults={
+                            'username': message_obj['from']['first_name'],
+                            'private_chat_id': message_obj['chat']['id'],
+                            'is_admin': True,
+                        }
+                    )
+                    text = 'Вы указали верный ключ и отныне входите в число администраторов бота'
+                    API.sendMessage(message_obj['chat']['id'], text, 'html')
+
+        if message_obj['chat'].get('type') != 'supergroup':
             return JsonResponse({
                 'ok': 'POST request processed'
             })
 
         old_group_id = message_obj.get('migrate_from_chat_id', None)
         if old_group_id:
-            old_group, _ = Groups.objects.get_or_create(id=old_group_id, title=message_obj['chat']['title'])
+            old_group, _ = Groups.objects.get_or_create(id=old_group_id, defaults={'title': message_obj['chat']['title']})
             new_group = Groups.objects.create(
                 id=message_obj['chat']['id'],
                 title=message_obj['chat']['title']
@@ -133,16 +151,21 @@ def webhook(request):
                 if new_chat_member['id'] != API.BOT_ID:
                     user, _ = Members.objects.get_or_create(
                         id=new_chat_member['id'],
-                        username=new_chat_member['first_name'],
+                        defaults={
+                            'username': new_chat_member['first_name'],
+                        }
                     )
-                    Info.objects.create(
+                    Info.objects.get_or_create(
                         user=user,
                         chat=Groups.objects.get_or_create(
                             id=message_obj['chat']['id'],
-                            title=message_obj['chat']['title'],
+                            defaults={
+                                'title': message_obj['chat']['title'],
+                            }
                         )[0],
                     )
                 else:
+
                     Groups.objects.create(
                         id=message_obj['chat']['id'],
                         title=message_obj['chat']['title']
@@ -157,16 +180,16 @@ def webhook(request):
             if left_chat_member['id'] != API.BOT_ID:
                 user, _ = Members.objects.get_or_create(
                     id=left_chat_member['id'],
-                    username=left_chat_member['first_name'],
+                    defaults={'username': left_chat_member['first_name']},
                 )
                 Info.objects.filter(
                     user=user,
-                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['id'])[0],
+                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['id']})[0],
                 ).delete()
                 API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
             else:
                 Info.objects.filter(
-                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])[0],
+                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})[0],
                 ).delete()
                 Groups.objects.filter(id=message_obj['chat']['id']).delete()
             return JsonResponse({
@@ -174,7 +197,8 @@ def webhook(request):
             })
 
         if message_obj:
-            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])
+            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})
+
             group.messages_in_last_interval += 1
             group.save()
 
@@ -183,7 +207,7 @@ def webhook(request):
             is_muted_by_admin = message_obj['from']['id'] in [admin_data['user']['id'] for admin_data in admins]
             if is_muted_by_admin:
                 mute_user(message_obj['chat'], reply_obj['from'])
-            API.deleteMessage(reply_obj['chat']['id'], reply_obj['message_id'])
+                API.deleteMessage(reply_obj['chat']['id'], reply_obj['message_id'])
 
         text_words = set(re.split('[\n .,?!:()]', message_obj.get('text', '').lower()))
 
@@ -197,17 +221,17 @@ def webhook(request):
 
             user, created = Members.objects.get_or_create(
                 id=reply_obj['from']['id'],
-                username=reply_obj['from']['first_name'],
+                defaults={'username': reply_obj['from']['first_name']},
             )
             info, _ = Info.objects.get_or_create(
                 user=user,
-                chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], title=message_obj['chat']['title'])[0],
+                chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})[0],
                 defaults={'date_joined': timezone.now() - timezone.timedelta(days=2)},
             )
             info.rating += 1
             info.save()
-            text = 'Репутация **{}** увеличена на 1.\nВсего очков репутации: **{}**'.format(reply_obj['from']['first_name'], info.rating)
-            API.sendMessage(message_obj['chat']['id'], text)
+            text = 'Репутация <b>{}</b> увеличена на 1.\nВсего очков репутации: <b>{}</b>'.format(reply_obj['from']['first_name'], info.rating)
+            API.sendMessage(message_obj['chat']['id'], text, 'html')
             has_message_gratitude = True
 
         return JsonResponse({
