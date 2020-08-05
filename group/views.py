@@ -311,6 +311,34 @@ def webhook(request):
                             'ok': 'POST request processed'
                         })
 
+        if message_obj:
+            user, _ = Members.objects.get_or_create(
+                id=message_obj['from']['id'],
+                defaults={'username': message_obj['from']['first_name']},
+            )
+            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})
+            info, _ = Info.objects.get_or_create(
+                user=user,
+                chat=group,
+                defaults={'date_joined': timezone.now() - timezone.timedelta(days=2)},
+            )
+            admins = API.getChatAdministrators(message_obj['chat']['id']).get('result', [])
+            is_admin = message_obj['from']['id'] in (admin_data['user']['id'] for admin_data in admins)
+            if not is_admin:
+                entities = message_obj.get('entities', [])
+                entities.extend(message_obj.get('caption_entities', []))
+
+                is_user_new = (timezone.now() - info.date_joined) < timezone.timedelta(days=2)
+                has_message_url = \
+                    any([entity.get('type') in ('url', 'text_link') for entity in entities]) or \
+                    re.findall(urlmarker.URL_REGEX, message_obj.get('text', '') or message_obj.get('caption', ''))
+
+                if has_message_url and is_user_new:
+                    print(API.deleteMessage(message_obj['chat']['id'], message_obj['message_id']))
+                    return JsonResponse({
+                        'ok': 'POST request processed'
+                    })
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
