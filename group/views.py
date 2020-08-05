@@ -257,6 +257,31 @@ def webhook(request):
                     'ok': 'POST request processed'
                 })
 
+            for mention in (word for word in text_words if word.startswith('@')):
+                if custom_search(Blacklist.objects.values_list('link', flat=True), mention):
+                    API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
+                    data = {
+                        'chat_id': message_obj['chat']['id'],
+                        'user_id': message_obj['from']['id'],
+                        'permissions_obj': json.dumps({
+                            'can_send_messages': False,
+                            'can_send_media_messages': False,
+                            'can_send_polls': False,
+                            'can_send_other_messages': False,
+                            'can_add_web_page_previews': False,
+                            'can_change_info': False,
+                            'can_pin_messages': False,
+                        }),
+                        'until_date': int(mktime((timezone.now() + timezone.timedelta(hours=24)).timetuple())),
+                    }
+                    API.restrictChatMember(**data)
+                    text = '{} перемещен в карантин на <b>24 часа</b> за <b>размещение нежелательной ссылки</b>.'.format(
+                        message_obj['from']['first_name'])
+                    API.sendMessage(message_obj['chat']['id'], text, 'html')
+                    return JsonResponse({
+                        'ok': 'POST request processed'
+                    })
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
