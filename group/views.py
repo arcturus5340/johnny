@@ -247,6 +247,16 @@ def webhook(request):
                 'ok': 'POST request processed'
             })
 
+        admins = API.getChatAdministrators(message_obj['chat']['id']).get('result', [])
+        is_admin = message_obj['from']['id'] in (admin_data['user']['id'] for admin_data in admins)
+        if not is_admin:
+            document = t_data.get('message', {}).get('document', {})
+            if document:
+                API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
+                return JsonResponse({
+                    'ok': 'POST request processed'
+                })
+
         return JsonResponse({
             'ok': 'POST request processed'
         })
