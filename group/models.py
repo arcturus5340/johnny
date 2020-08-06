@@ -79,6 +79,47 @@ class Members(models.Model):
         return self.username
 
 
+class GroupsLog(models.Model):
+    group_id = models.IntegerField(
+        verbose_name='ID Группы',
+    )
+    group_title = models.CharField(
+        max_length=32,
+        verbose_name='Название Группы',
+    )
+    added_by = models.ForeignKey(
+        Members,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='added_by',
+        verbose_name='Добавивший',
+    )
+    is_processed = models.BooleanField(
+        default=False,
+        verbose_name='Запрос обработан?',
+    )
+    processed_by = models.ForeignKey(
+        Members,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='processed_by',
+        verbose_name='Оработавший',
+    )
+    created_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='Добавлен',
+    )
+
+    def __str__(self):
+        return 'Запись об активации бота'
+
+    class Meta:
+        verbose_name = 'Запись об активации бота'
+        verbose_name_plural = 'Записи об активации бота'
+
+
 class Info(models.Model):
     user = models.ForeignKey(
         Members,
