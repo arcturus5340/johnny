@@ -64,6 +64,25 @@ class Groups(models.Model):
         verbose_name_plural = 'Группы'
 
 
+class GroupsBlacklist(models.Model):
+    id = models.IntegerField(
+        primary_key=True,
+        unique=True,
+        verbose_name='ID Группы'
+    )
+    title = models.CharField(
+        max_length=32,
+        verbose_name='Название Группы',
+    )
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Заблокированная группа'
+        verbose_name_plural = 'Заблокированные группы'
+
+
 class Members(models.Model):
     id = models.IntegerField(
         primary_key=True,
