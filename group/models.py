@@ -17,6 +17,19 @@ class Blacklist(models.Model):
         verbose_name_plural = 'Нежелательные ссылки'
 
 
+class GlobalSettings(models.Model):
+    setting = models.TextField(
+        verbose_name='Настройка',
+    )
+    value = models.TextField(
+        verbose_name='Значение',
+    )
+
+    class Meta:
+        verbose_name = 'Настройки'
+        verbose_name_plural = 'Настройки'
+
+
 class Gratitudes(models.Model):
     word = models.CharField(
         max_length=32,
