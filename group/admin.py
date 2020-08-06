@@ -54,6 +54,14 @@ class GroupsLogAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(models.GroupsBlacklist)
+class GroupsBlacklistAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'title',
+    )
+
+
 @admin.register(models.Info)
 class InfoAdmin(admin.ModelAdmin):
     readonly_fields = list_display = ('user__id', 'user', 'chat', 'rating', 'mute_rating', 'date_joined')
