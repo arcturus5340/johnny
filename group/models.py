@@ -74,6 +74,14 @@ class Members(models.Model):
         blank=True,
         null=True,
     )
+    private_chat_id = models.IntegerField(
+        unique=True,
+        blank=True,
+        null=True,
+    )
+    is_admin = models.BooleanField(
+        default=False,
+    )
 
     def __str__(self):
         return self.username
