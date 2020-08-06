@@ -6,6 +6,15 @@ class API:
     TOKEN = '1367204126:AAFmR048ECJfBht5pOJA2Xn94WsJkJe6ydg'
     BOT_ID = 1367204126
 
+
+    @classmethod
+    def answerCallbackQuery(cls, callback_query_id, text):
+        response = requests.post(f'https://api.telegram.org/bot{cls.TOKEN}/answerCallbackQuery', data={
+            'callback_query_id': callback_query_id,
+            'text': text,
+        })
+        return json.loads(response.content)
+
     @classmethod
     def deleteMessage(cls, chat_id, message_id):
         response = requests.post(f'https://api.telegram.org/bot{cls.TOKEN}/deleteMessage', data={
@@ -48,10 +57,11 @@ class API:
         return json.loads(response.content)
 
     @classmethod
-    def sendMessage(cls, chat_id, text, parse_mode='Markdown'):
+    def sendMessage(cls, chat_id, text, parse_mode, reply_markup=None):
         response = requests.post(f'https://api.telegram.org/bot{cls.TOKEN}/sendMessage', data={
             'chat_id': chat_id,
             'text': text,
             'parse_mode': parse_mode,
+            'reply_markup': reply_markup,
         })
         return json.loads(response.content)
