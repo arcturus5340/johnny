@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User, Group
+from django.urls import reverse
+from django.utils.html import format_html
 from background_task import background
 
 import uuid
@@ -22,6 +24,36 @@ class GratitudesAdmin(admin.ModelAdmin):
     list_display = ('word',)
 
 
+@admin.register(models.GroupsLog)
+class GroupsLogAdmin(admin.ModelAdmin):
+    readonly_fields = list_display = (
+        'group_title',
+        'group_id',
+        'added_by_info',
+        'is_processed',
+        'processed_by_info',
+        'created_at',
+    )
+    list_filter = ('group_title',)
+
+    def added_by_info(self, obj):
+        return '{} (ID: {})'.format(obj.added_by.username, obj.added_by.id)
+    added_by_info.short_description = 'Добавивший'
+
+    def processed_by_info(self, obj):
+        return '{} (ID: {})'.format(obj.processed_by.username, obj.processed_by.id)
+    processed_by_info.short_description = 'Обработавший'
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(models.Info)
 class InfoAdmin(admin.ModelAdmin):
     readonly_fields = list_display = ('user__id', 'user', 'chat', 'rating', 'mute_rating', 'date_joined')
@@ -33,10 +65,11 @@ class InfoAdmin(admin.ModelAdmin):
     def has_add_permission(self, request, obj=None):
         return False
 
+
 @background
 def send_message(chat_id, text):
     group = models.Groups.objects.get(id=chat_id)
-    if group.messages_in_last_interval > 10:
+    if group.messages_in_last_interval > 9:
         API.sendMessage(chat_id, text)
         group.messages_in_last_interval = 0
         group.save()
