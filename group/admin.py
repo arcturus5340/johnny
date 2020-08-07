@@ -1,7 +1,5 @@
 from django.contrib import admin
 from django.contrib.auth.models import User, Group
-from django.urls import reverse
-from django.utils.html import format_html
 from background_task import background
 
 import uuid
@@ -17,6 +15,12 @@ from background_task.models import Task, CompletedTask
 class BlacklistAdmin(admin.ModelAdmin):
     list_display = ('link', )
     search_fields = ('link', )
+
+
+@admin.register(models.GlobalSettings)
+class GlobalSettingsAdmin(admin.ModelAdmin):
+    list_display = ('setting', 'value')
+    readonly_fields = ('setting', )
 
 
 @admin.register(models.Gratitudes)
@@ -56,7 +60,7 @@ class GroupsLogAdmin(admin.ModelAdmin):
 
 @admin.register(models.GroupsBlacklist)
 class GroupsBlacklistAdmin(admin.ModelAdmin):
-    list_display = (
+    list_display = readonly_fields = (
         'id',
         'title',
     )
@@ -78,7 +82,7 @@ class InfoAdmin(admin.ModelAdmin):
 def send_message(chat_id, text):
     group = models.Groups.objects.get(id=chat_id)
     if group.messages_in_last_interval > 9:
-        API.sendMessage(chat_id, text)
+        API.sendMessage(chat_id, text, 'markdown')
         group.messages_in_last_interval = 0
         group.save()
 
@@ -110,11 +114,12 @@ class ScheduledMessagesAdmin(admin.ModelAdmin):
 
 @admin.register(models.Swearing)
 class SwearingAdmin(admin.ModelAdmin):
-    list_display = search_fields =('word',)
+    list_display = search_fields = ('word',)
+
 
 @admin.register(models.Whitelist)
 class WhitelistAdmin(admin.ModelAdmin):
-    list_display = search_fields =('word',)
+    list_display = search_fields = ('word',)
 
 
 admin.site.index_title = 'Админиcтрирование ботов'
