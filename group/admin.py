@@ -87,6 +87,18 @@ def send_message(chat_id, text):
         group.save()
 
 
+@admin.register(models.Members)
+class MembersAdmin(admin.ModelAdmin):
+    list_display = readonly_fields = ('id', 'username')
+
+    def get_queryset(self, request):
+        qs = super(MembersAdmin, self).get_queryset(request)
+        return qs.filter(is_admin=True)
+
+    def has_add_permission(self, request):
+        return False
+
+
 @admin.register(models.ScheduledMessages)
 class ScheduledMessagesAdmin(admin.ModelAdmin):
     form = forms.ScheduledMessagesForm
