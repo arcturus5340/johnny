@@ -237,6 +237,25 @@ def webhook(request):
                         message_obj['chat']['title'],
                         message_obj['chat']['id'],
                     )
+                    inline_keyboard_markup = {
+                        'inline_keyboard': [
+                            [{
+                                'text': 'Подтверждаю',
+                                'callback_data': 'accept:{}'.format(GroupsLog.objects.latest('id').id),
+                            }],
+                            [{
+                                'text': 'Отклоняю',
+                                'callback_data': 'reject:{}'.format(GroupsLog.objects.latest('id').id),
+                            }],
+                        ]
+                    }
+                    for admin in Members.objects.filter(is_admin=True):
+                        API.sendMessage(admin.private_chat_id, text, 'Markdown', json.dumps(inline_keyboard_markup))
+
+                    return JsonResponse({
+                        'ok': 'POST request processed'
+                    })
+
                 API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
                 return JsonResponse({
                     'ok': 'POST request processed'
