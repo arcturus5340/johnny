@@ -172,6 +172,17 @@ def webhook(request):
                     chat=old_group,
                 ).update(chat=new_group)
                 old_group.delete()
+            old_group = GroupsBlacklist.objects.filter(id=old_group_id).first()
+            if old_group:
+                GroupsBlacklist.objects.create(
+                    id=message_obj['chat']['id'],
+                    title=message_obj['chat']['title']
+                )
+                old_group.delete()
+            old_group = GroupsLog.objects.filter(group_id=old_group_id).first()
+            if old_group:
+                old_group.supergroup_id=message_obj['chat']['id']
+                old_group.save()
 
             return JsonResponse({
                 'ok': 'POST request processed'
