@@ -3,7 +3,7 @@ import json
 from django.http import JsonResponse
 from pprint import pprint
 
-from group.models import Blacklist, Gratitudes, GlobalSettings, Groups, Info, Members, Swearing, Whitelist
+from group.models import Blacklist, Gratitudes, GlobalSettings, Groups, GroupsBlacklist, GroupsLog, Info, Members, Swearing, Whitelist
 
 from time import mktime
 
@@ -41,7 +41,7 @@ def mute_user(chat_obj, user_obj):
             'username': user_obj['first_name'],
         }
     )
-    group, _ = Groups.objects.get_or_create(id=chat_obj['id'], defaults={'title': chat_obj['title']})
+    group = Groups.objects.get(id=chat_obj['id'])
     info, _ = Info.objects.get_or_create(
         user=user,
         chat=group,
@@ -72,12 +72,9 @@ def mute_user(chat_obj, user_obj):
         )
         Info.objects.filter(
             user=user,
-            chat=Groups.objects.get_or_create(
+            chat=Groups.objects.get(
                 id=chat_obj['id'],
-                defaults={
-                    'title': chat_obj['title'],
-                }
-            )[0],
+            ),
         ).delete()
         return JsonResponse({
             'ok': True,
@@ -105,8 +102,47 @@ def webhook(request):
         t_data = json.loads(request.body)
         pprint(t_data)
 
+        # return JsonResponse({
+        #     'ok': 'POST request processed'
+        # })
+
         message_obj = t_data.get('message', {}) or t_data.get('edited_message', {})
         reply_obj = message_obj.get('reply_to_message')
+        callback_query_obj = t_data.get('callback_query', {})
+
+        if callback_query_obj and callback_query_obj.get('data'):
+            decision, log_obj_id = callback_query_obj['data'].split(':')
+            log_obj = GroupsLog.objects.filter(id=log_obj_id).order_by('created_at').last()
+            if log_obj.is_processed:
+                text = 'Данный запрос уже обработан другим администратором'
+                API.answerCallbackQuery(callback_query_obj['id'], text)
+                API.deleteMessage(callback_query_obj['message']['chat']['id'],
+                                  callback_query_obj['message']['message_id'])
+                return JsonResponse({
+                    'ok': 'POST request processed'
+                })
+
+            if log_obj.supergroup_id:
+                log_obj.group_id = log_obj.supergroup_id
+                log_obj.save()
+
+            if decision == 'accept':
+                Groups.objects.create(id=log_obj.group_id, title=log_obj.group_title)
+            elif decision == 'reject':
+                GroupsBlacklist.objects.create(id=log_obj.group_id, title=log_obj.group_title)
+            else:
+                # log event
+                pass
+
+            text = 'Запрос успешно обработан'
+            API.answerCallbackQuery(callback_query_obj['id'], text)
+            API.deleteMessage(callback_query_obj['message']['chat']['id'], callback_query_obj['message']['message_id'])
+            log_obj.is_processed = True
+            log_obj.processed_by = Members.objects.get(id=callback_query_obj['from']['id'])
+            log_obj.save()
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
 
         if message_obj['chat'].get('type') == 'private':
             activation_key_match = re.search(r'^/activate\s(\S+).*$', message_obj.get('text', ''))
@@ -124,22 +160,18 @@ def webhook(request):
                     text = 'Вы указали верный ключ и отныне входите в число администраторов бота'
                     API.sendMessage(message_obj['chat']['id'], text, 'html')
 
-        if message_obj['chat'].get('type') != 'supergroup':
-            return JsonResponse({
-                'ok': 'POST request processed'
-            })
-
         old_group_id = message_obj.get('migrate_from_chat_id', None)
         if old_group_id:
-            old_group, _ = Groups.objects.get_or_create(id=old_group_id, defaults={'title': message_obj['chat']['title']})
-            new_group = Groups.objects.create(
-                id=message_obj['chat']['id'],
-                title=message_obj['chat']['title']
-            )
-            Info.objects.filter(
-                chat=old_group,
-            ).update(chat=new_group)
-            old_group.delete()
+            old_group = Groups.objects.filter(id=old_group_id).first()
+            if old_group:
+                new_group = Groups.objects.create(
+                    id=message_obj['chat']['id'],
+                    title=message_obj['chat']['title']
+                )
+                Info.objects.filter(
+                    chat=old_group,
+                ).update(chat=new_group)
+                old_group.delete()
 
             return JsonResponse({
                 'ok': 'POST request processed'
@@ -157,18 +189,26 @@ def webhook(request):
                     )
                     Info.objects.get_or_create(
                         user=user,
-                        chat=Groups.objects.get_or_create(
+                        chat=Groups.objects.get(
                             id=message_obj['chat']['id'],
-                            defaults={
-                                'title': message_obj['chat']['title'],
-                            }
-                        )[0],
+                        ),
                     )
-                else:
+                elif not Groups.objects.filter(id=message_obj['chat']['id']).exists():
+                    added_by_user, _ = Members.objects.get_or_create(
+                        id=message_obj['from']['id'],
+                        defaults={
+                            'username': message_obj['from']['first_name'],
+                        }
+                    )
+                    new_log_obj = GroupsLog.objects.create(
+                        group_id=message_obj['chat']['id'],
+                        group_title=message_obj['chat']['title'],
+                        added_by=added_by_user,
+                    )
 
-                    Groups.objects.create(
-                        id=message_obj['chat']['id'],
-                        title=message_obj['chat']['title']
+                    text = 'Бот был добавлен в группу {} (ID: {}). Активировать?'.format(
+                        message_obj['chat']['title'],
+                        message_obj['chat']['id'],
                     )
                 API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
                 return JsonResponse({
@@ -184,12 +224,12 @@ def webhook(request):
                 )
                 Info.objects.filter(
                     user=user,
-                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['id']})[0],
+                    chat=Groups.objects.get(id=message_obj['chat']['id']),
                 ).delete()
                 API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
             else:
                 Info.objects.filter(
-                    chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})[0],
+                    chat=Groups.objects.get(id=message_obj['chat']['id']),
                 ).delete()
                 Groups.objects.filter(id=message_obj['chat']['id']).delete()
             return JsonResponse({
@@ -197,7 +237,7 @@ def webhook(request):
             })
 
         if message_obj:
-            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})
+            group = Groups.objects.get(id=message_obj['chat']['id'])
 
             group.messages_in_last_interval += 1
             group.save()
@@ -225,7 +265,7 @@ def webhook(request):
             )
             info, _ = Info.objects.get_or_create(
                 user=user,
-                chat=Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})[0],
+                chat=Groups.objects.get(id=message_obj['chat']['id']),
                 defaults={'date_joined': timezone.now() - timezone.timedelta(days=2)},
             )
             info.rating += 1
@@ -316,7 +356,7 @@ def webhook(request):
                 id=message_obj['from']['id'],
                 defaults={'username': message_obj['from']['first_name']},
             )
-            group, _ = Groups.objects.get_or_create(id=message_obj['chat']['id'], defaults={'title': message_obj['chat']['title']})
+            group = Groups.objects.get(id=message_obj['chat']['id'])
             info, _ = Info.objects.get_or_create(
                 user=user,
                 chat=group,
