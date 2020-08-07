@@ -26,8 +26,8 @@ class GlobalSettings(models.Model):
     )
 
     class Meta:
-        verbose_name = 'Настройки'
-        verbose_name_plural = 'Настройки'
+        verbose_name = 'Глобальная настройка'
+        verbose_name_plural = 'Глобальные настройки'
 
 
 class Gratitudes(models.Model):
@@ -87,11 +87,13 @@ class Members(models.Model):
     id = models.IntegerField(
         primary_key=True,
         unique=True,
+        verbose_name='ID Пользователя'
     )
     username = models.CharField(
         max_length=32,
         blank=True,
         null=True,
+        verbose_name='Имя пользователя'
     )
     private_chat_id = models.IntegerField(
         unique=True,
@@ -105,10 +107,19 @@ class Members(models.Model):
     def __str__(self):
         return self.username
 
+    class Meta:
+        verbose_name='Администратор'
+        verbose_name_plural='Администраторы'
+
 
 class GroupsLog(models.Model):
     group_id = models.IntegerField(
         verbose_name='ID Группы',
+    )
+    supergroup_id = models.IntegerField(
+        verbose_name='ID Группы',
+        blank=True,
+        null=True,
     )
     group_title = models.CharField(
         max_length=32,
