@@ -188,6 +188,22 @@ def webhook(request):
                 'ok': 'POST request processed'
             })
 
+        if message_obj['chat']['type'] not in ('group', 'supergroup'):
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
+        is_blacklisted_group = GroupsBlacklist.objects.filter(id=message_obj['chat']['id']).exists()
+        is_processed_group = GroupsLog.objects.filter(group_id=message_obj['chat']['id'], is_processed=True).exists() \
+                          or GroupsLog.objects.filter(supergroup_id=message_obj['chat']['id'], is_processed=True).exists()
+        exists_in_groupslog = GroupsLog.objects.filter(group_id=message_obj['chat']['id']).exists() \
+                           or GroupsLog.objects.filter(supergroup_id=message_obj['chat']['id']).exists()
+
+        if is_blacklisted_group or (exists_in_groupslog and not is_processed_group):
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
         new_chat_members = message_obj.get('new_chat_members')
         if new_chat_members:
             for new_chat_member in new_chat_members:
