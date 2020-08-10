@@ -282,6 +282,42 @@ def webhook(request):
                 'ok': 'POST request processed'
             })
 
+        if message_obj.get('group_chat_created'):
+            added_by_user, _ = Members.objects.get_or_create(
+                id=message_obj['from']['id'],
+                defaults={
+                    'username': message_obj['from']['first_name'],
+                }
+            )
+            new_log_obj = GroupsLog.objects.create(
+                group_id=message_obj['chat']['id'],
+                group_title=message_obj['chat']['title'],
+                added_by=added_by_user,
+            )
+
+            text = 'Бот был добавлен в группу {} (ID: {}). Активировать?'.format(
+                message_obj['chat']['title'],
+                message_obj['chat']['id'],
+            )
+            inline_keyboard_markup = {
+                'inline_keyboard': [
+                    [{
+                        'text': 'Подтверждаю',
+                        'callback_data': 'accept:{}'.format(GroupsLog.objects.latest('id').id),
+                    }],
+                    [{
+                        'text': 'Отклоняю',
+                        'callback_data': 'reject:{}'.format(GroupsLog.objects.latest('id').id),
+                    }],
+                ]
+            }
+            for admin in Members.objects.filter(is_admin=True):
+                API.sendMessage(admin.private_chat_id, text, 'Markdown', json.dumps(inline_keyboard_markup))
+
+            return JsonResponse({
+                'ok': 'POST request processed'
+            })
+
         if message_obj:
             group = Groups.objects.get(id=message_obj['chat']['id'])
 
@@ -374,7 +410,7 @@ def webhook(request):
                 if entity['type'] in ['url', 'mention', 'text_link']:
                     entity_content = message_obj.get('text', '') or message_obj.get('caption', '')
                     url = entity_content[entity['offset']:entity['offset']+entity['length']]
-                    if custom_search(Blacklist.objects.values_list('link', flat=True), url):
+                    if url in Blacklist.objects.values_list('link', flat=True):
                         API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
                         data = {
                             'chat_id': message_obj['chat']['id'],
