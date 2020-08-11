@@ -356,22 +356,22 @@ def webhook(request):
             API.sendMessage(message_obj['chat']['id'], text, 'html')
             has_message_gratitude = True
 
-        swearing_words = set(Swearing.objects.values_list('word', flat=True))
-        swearing_words_in_text = [custom_search(swearing_words, word) for word in text_words]
-        swearing_words_in_text = {item for sublist in swearing_words_in_text for item in sublist}
-        if swearing_words_in_text - set(Whitelist.objects.values_list('word', flat=True)):
-            API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
-
-            if has_message_gratitude:
-                mute_user(message_obj['chat'], message_obj['from'])
-
-            return JsonResponse({
-                'ok': 'POST request processed'
-            })
-
         admins = API.getChatAdministrators(message_obj['chat']['id']).get('result', [])
         is_admin = message_obj['from']['id'] in (admin_data['user']['id'] for admin_data in admins)
         if not is_admin:
+            swearing_words = set(Swearing.objects.values_list('word', flat=True))
+            swearing_words_in_text = [custom_search(swearing_words, word) for word in text_words]
+            swearing_words_in_text = {item for sublist in swearing_words_in_text for item in sublist}
+            if swearing_words_in_text - set(Whitelist.objects.values_list('word', flat=True)):
+                API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
+
+                if has_message_gratitude:
+                    mute_user(message_obj['chat'], message_obj['from'])
+
+                return JsonResponse({
+                    'ok': 'POST request processed'
+                })
+
             document = t_data.get('message', {}).get('document', {})
             if document:
                 API.deleteMessage(message_obj['chat']['id'], message_obj['message_id'])
